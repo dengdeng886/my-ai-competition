@@ -18,7 +18,15 @@ def run_oee_system():
     warnings.filterwarnings('ignore')
 
     # 设置中文字体
-    plt.rcParams['font.sans-serif'] = ['SimHei']
+    #plt.rcParams['font.sans-serif'] = ['SimHei']
+    plt.rcParams['font.sans-serif'] = [
+    'DejaVu Sans', 
+    'Arial Unicode MS', 
+    'SimHei', 
+    'Microsoft YaHei', 
+    'WenQuanYi Micro Hei',
+    'sans-serif'
+]
     plt.rcParams['axes.unicode_minus'] = False
 
     class OEEAnalyzer:
@@ -1208,6 +1216,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
