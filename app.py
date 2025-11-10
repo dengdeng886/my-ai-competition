@@ -251,7 +251,7 @@ def run_oee_system():
                     <div style="background-color: #e8f4fd; padding: 12px; margin-top: 10px; border-radius: 6px; border-left: 3px solid #17a2b8;">
                     <p><strong>业务意义:</strong></p>
                     <ul style="margin-bottom: 0;">
-                    <li>OEE是衡量设备综合效率的核心指标，范围在0-1之间</li>
+                    <li>OEE是衡量综合设备效率的核心指标，范围在0-1之间</li>
                     <li>数值越高表示设备效率越高，通常85%以上为优秀水平</li>
                     <li>通过分解OEE可识别设备效率损失的具体环节</li>
                     </ul>
@@ -269,7 +269,7 @@ def run_oee_system():
             st.subheader("1. 时间序列趋势图")
             st.markdown("""
             <div style="background-color: #f8f9fa; padding: 12px; border-radius: 8px; border-left: 4px solid #f8f9fa; margin-bottom: 10px; font-size: 13px; line-height: 1.5;">
-            🔍 <strong>作用</strong>：展示OEE整体随时间的变化趋势，帮助识别设备综合效率的长期走势、季节性波动或异常点。
+            🔍 <strong>作用</strong>：展示OEE整体随时间的变化趋势，帮助识别设备效率的长期走势、季节性波动或异常点。
             </div>
             <div style="background-color: #f8f9fa; padding: 12px; border-radius: 8px; border-left: 4px solid #f8f9fa; font-size: 13px; line-height: 1.5;">
             💡 <strong>业务洞察</strong>：OEE趋势图是判断设备运行健康度的‘心电图’。若OEE持续下降，可能反映设备老化、维护不足或工艺退化；若出现突发性下跌，应结合生产日志排查是否发生重大停机、换型或质量问题。管理者可据此设定预警阈值，实现主动干预。
@@ -386,38 +386,150 @@ def run_oee_system():
             st.plotly_chart(fig3, use_container_width=True)
 
             # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-            # 4. 散点图矩阵 - 迁移到Plotly版本
+            # 4. 散点图矩阵 - 4×4子图版本（修复标题大小和边框问题）
             st.subheader("4. 散点图矩阵")
             st.markdown("""
             <div style="background-color: #f8f9fa; padding: 12px; border-radius: 8px; border-left: 4px solid #f8f9fa; margin-bottom: 10px; font-size: 13px; line-height: 1.5;">
             🔍 <strong>作用</strong>：揭示OEE与各因素之间的非线性关系及数据分布形态。
             </div>
             <div style="background-color: #f8f9fa; padding: 12px; border-radius: 8px; border-left: 4px solid #f8f9fa; font-size: 13px; line-height: 1.5;">
-            💡 <strong>业务洞察</strong>：散点图能暴露异常值、聚类或拐点。例如，若‘良品率’在高OEE区间突然下降，可能意味着高速生产牺牲了质量——这提示管理者需在效率与质量间寻找平衡点，避免盲目提速。
+            💡 <strong>业务洞察</strong>：散点图能暴露异常值、聚类或拐点。例如，若'良品率'在高OEE区间突然下降，可能意味着高速生产牺牲了质量——这提示管理者需在效率与质量间寻找平衡点，避免盲目提速。
             </div>
             """, unsafe_allow_html=True)
 
-            # 使用Plotly Express创建散点图矩阵
-            scatter_data = self.df[['OEE', '设备有效利用率', '性能时间', '良品率']]
+            # 使用Plotly创建4×4子图布局
+            factors = ['OEE', '设备有效利用率', '性能时间', '良品率']
 
-            # 创建散点图矩阵
-            fig4 = px.scatter_matrix(
-                scatter_data,
-                dimensions=scatter_data.columns,
-                title="OEE与各因素散点图矩阵",
-                height=600
+            # 创建4×4子图，设置水平和垂直间距，不添加子图标题
+            fig4 = make_subplots(
+                rows=4,
+                cols=4,
+                shared_xaxes=False,
+                shared_yaxes=False,
+                horizontal_spacing=0.08,  # 水平间距
+                vertical_spacing=0.08,  # 垂直间距
+                subplot_titles=[''] * 16  # 空标题，避免重叠
             )
 
-            # 更新布局
+            # 为每个子图添加相应的数据
+            for i, y_factor in enumerate(factors, 1):
+                for j, x_factor in enumerate(factors, 1):
+                    row = i
+                    col = j
+
+                    if i == j:
+                        # 对角线：直方图
+                        hist_data = self.df[x_factor]
+                        fig4.add_trace(
+                            go.Histogram(
+                                x=hist_data,
+                                nbinsx=15,
+                                marker_color='lightblue',
+                                opacity=0.7,
+                                name=f'{x_factor}分布',
+                                showlegend=False
+                            ),
+                            row=row, col=col
+                        )
+                    else:
+                        # 非对角线：散点图
+                        fig4.add_trace(
+                            go.Scatter(
+                                x=self.df[x_factor],
+                                y=self.df[y_factor],
+                                mode='markers',
+                                marker=dict(
+                                    size=6,
+                                    color='blue',
+                                    opacity=0.6,
+                                    line=dict(width=0.5, color='darkblue')
+                                ),
+                                showlegend=False
+                            ),
+                            row=row, col=col
+                        )
+
+            # 更新布局和样式 - 主标题靠左对齐，字号改为16与其他图一致
             fig4.update_layout(
                 title={
                     'text': "OEE与各因素散点图矩阵",
-                    'font': {'size': 16, 'weight': 'bold'}
-                }
+                    'font': {'size': 16, 'weight': 'bold'},  # 从20改为16
+                    'x': 0,  # 左对齐
+                    'xanchor': 'left'
+                },
+                height=900,  # 增加高度以适应4×4布局
+                showlegend=False,
+                paper_bgcolor='white',
+                plot_bgcolor='white',
+                margin=dict(l=60, r=40, t=80, b=60)  # 增加右侧边距确保最后一列边框可见
             )
 
-            # 更新对角线上的直方图
-            fig4.update_traces(diagonal_visible=True, showupperhalf=True, showlowerhalf=True)
+            # 为每个子图添加边框、网格和坐标轴标签
+            for i in range(1, 5):
+                for j in range(1, 5):
+                    # 设置X轴标签 - 只在最后一行显示
+                    if i == 4:
+                        fig4.update_xaxes(
+                            title_text=factors[j - 1],
+                            title_font=dict(size=10),
+                            showgrid=True,
+                            gridwidth=1,
+                            gridcolor='rgba(200,200,200,0.5)',
+                            linecolor='black',
+                            linewidth=1,
+                            mirror=True,
+                            showline=True,  # 确保显示线条
+                            row=i, col=j
+                        )
+                    else:
+                        fig4.update_xaxes(
+                            showgrid=True,
+                            gridwidth=1,
+                            gridcolor='rgba(200,200,200,0.5)',
+                            linecolor='black',
+                            linewidth=1,
+                            mirror=True,
+                            showline=True,  # 确保显示线条
+                            showticklabels=True,  # 确保显示刻度标签
+                            row=i, col=j
+                        )
+
+                    # 设置Y轴标签 - 只在第一列显示
+                    if j == 1:
+                        fig4.update_yaxes(
+                            title_text=factors[i - 1],
+                            title_font=dict(size=10),
+                            showgrid=True,
+                            gridwidth=1,
+                            gridcolor='rgba(200,200,200,0.5)',
+                            linecolor='black',
+                            linewidth=1,
+                            mirror=True,
+                            showline=True,  # 确保显示线条
+                            row=i, col=j
+                        )
+                    else:
+                        fig4.update_yaxes(
+                            showgrid=True,
+                            gridwidth=1,
+                            gridcolor='rgba(200,200,200,0.5)',
+                            linecolor='black',
+                            linewidth=1,
+                            mirror=True,
+                            showline=True,  # 确保显示线条
+                            showticklabels=True,  # 确保显示刻度标签
+                            row=i, col=j
+                        )
+
+            # 特别确保最后一列的右侧边框显示
+            for i in range(1, 5):
+                fig4.update_yaxes(
+                    showline=True,
+                    linecolor='black',
+                    linewidth=1,
+                    mirror=True,
+                    row=i, col=4
+                )
 
             st.plotly_chart(fig4, use_container_width=True)
 
@@ -1151,19 +1263,68 @@ def run_production_system():
             if df.empty:
                 st.warning("无缓冲区数据")
                 return
+
             df['库存占比'] = df['期末数量(盘)'] / self.SAFE_BUFFER
-            fig = px.line(df, x='日期', y='库存占比', title="缓冲区库存占比趋势")
-            fig.add_hline(y=st.session_state.get("high_thresh", 0.8), line_dash="dash", line_color="red",
-                          annotation_text="高预警")
-            fig.add_hline(y=st.session_state.get("low_thresh", 0.2), line_dash="dash", line_color="green",
-                          annotation_text="低预警")
-            # === 新增：增强 Plotly 标题 ===
+
+            # 创建折线图 - 完全匹配产量趋势图的样式
+            fig = go.Figure()
+
+            # 添加主趋势线 - 使用与其他图表一致的蓝色
+            fig.add_trace(go.Scatter(
+                x=df['日期'],
+                y=df['库存占比'],
+                mode='lines+markers',
+                name='库存占比',
+                line=dict(
+                    width=2,
+                    color='#1f77b4',  # 修改为与其他图表一致的蓝色
+                ),
+                marker=dict(
+                    size=4,
+                    color='#1f77b4'  # 标记点也使用相同颜色
+                ),
+                hovertemplate=(
+                        '<b>日期</b>: %{x|%Y-%m-%d}<br>' +
+                        '<b>库存占比</b>: %{y:.2%}<br>' +
+                        '<b>实际库存</b>: ' + df['期末数量(盘)'].astype(str) + ' 盘<extra></extra>'
+                )
+            ))
+
+            # 添加预警线
+            high_thresh = st.session_state.get("high_thresh", 0.8)
+            low_thresh = st.session_state.get("low_thresh", 0.2)
+
+            fig.add_hline(
+                y=high_thresh,
+                line_dash="dash",
+                line_color="red",
+                line_width=2,
+                annotation_text=f"高预警 {high_thresh:.0%}",
+                annotation_position="bottom right"
+            )
+
+            fig.add_hline(
+                y=low_thresh,
+                line_dash="dash",
+                line_color="green",
+                line_width=2,
+                annotation_text=f"低预警 {low_thresh:.0%}",
+                annotation_position="top right"
+            )
+
+            # 布局 - 完全匹配其他图表的标题样式
             fig.update_layout(
                 title={
                     'text': "缓冲区库存占比趋势",
                     'font': {'size': 18, 'weight': 'bold'}
-                }
+                },
+                xaxis_title="日期",
+                yaxis_title="库存占比",
+                height=400,
+                showlegend=True,
+                font=dict(size=12)
             )
+
             st.plotly_chart(fig, use_container_width=True)
 
         def _show_alerts_warnings(self, risks):
