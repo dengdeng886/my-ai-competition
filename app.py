@@ -1,12 +1,14 @@
 # -*- coding: utf-8 -*-
 import streamlit as st
 
+
 # 为避免命名冲突，将两个系统的 main 函数重命名
 def run_oee_system():
     import pandas as pd
     import numpy as np
-    import matplotlib.pyplot as plt
-    import seaborn as sns
+    import plotly.express as px
+    import plotly.graph_objects as go
+    import plotly.figure_factory as ff
     from sklearn.linear_model import LinearRegression
     from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor, IsolationForest
     from xgboost import XGBRegressor
@@ -16,18 +18,6 @@ def run_oee_system():
     import io
 
     warnings.filterwarnings('ignore')
-
-    # 设置中文字体
-    #plt.rcParams['font.sans-serif'] = ['SimHei']
-    plt.rcParams['font.sans-serif'] = [
-    'DejaVu Sans', 
-    'Arial Unicode MS', 
-    'SimHei', 
-    'Microsoft YaHei', 
-    'WenQuanYi Micro Hei',
-    'sans-serif'
-]
-    plt.rcParams['axes.unicode_minus'] = False
 
     class OEEAnalyzer:
         def __init__(self, data):
@@ -146,7 +136,7 @@ def run_oee_system():
             # -------------------------------------------------
             # 🎯 最终影响因素优先级排序（修复版）
             # -------------------------------------------------
-            st.subheader("2.最终影响因素优先级排序")#🎯
+            st.subheader("2.最终影响因素优先级排序")  # 🎯
 
             # 一次性拼完整 HTML，避免 Streamlit 自动转义或闭合
             html_parts = [
@@ -285,16 +275,29 @@ def run_oee_system():
             💡 <strong>业务洞察</strong>：OEE趋势图是判断设备运行健康度的‘心电图’。若OEE持续下降，可能反映设备老化、维护不足或工艺退化；若出现突发性下跌，应结合生产日志排查是否发生重大停机、换型或质量问题。管理者可据此设定预警阈值，实现主动干预。
             </div>
             """, unsafe_allow_html=True)
-            fig1, ax1 = plt.subplots(figsize=(5, 2.5), dpi=150)
-            ax1.plot(self.df['时间'], self.df['OEE'], 'o-', linewidth=1.2, markersize=2, label='OEE')
-            ax1.set_title('OEE时间趋势', fontsize=9, fontweight='bold')
-            ax1.set_ylabel('OEE', fontsize=8)
-            ax1.tick_params(axis='x', rotation=45, labelsize=7)
-            ax1.tick_params(axis='y', labelsize=7)
-            ax1.grid(True, alpha=0.3)
-            ax1.legend(fontsize=7)
-            plt.tight_layout()
-            st.pyplot(fig1, use_container_width=True)
+
+            # 使用Plotly替代matplotlib
+            fig1 = go.Figure()
+            fig1.add_trace(go.Scatter(
+                x=self.df['时间'],
+                y=self.df['OEE'],
+                mode='lines+markers',
+                name='OEE',
+                line=dict(width=2, color='blue'),
+                marker=dict(size=4)
+            ))
+            fig1.update_layout(
+                title={
+                    'text': "OEE时间趋势",
+                    'font': {'size': 16, 'weight': 'bold'}
+                },
+                xaxis_title="时间",
+                yaxis_title="OEE",
+                height=300,
+                showlegend=True,
+                font=dict(size=12)
+            )
+            st.plotly_chart(fig1, use_container_width=True)
 
             # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
             # 2. 各因素时间趋势
@@ -307,23 +310,41 @@ def run_oee_system():
             💡 <strong>业务洞察</strong>：通过观察各因素的时间走势，可判断效率损失的来源是否具有周期性或突发性。例如，若‘设备有效利用率’在某月骤降，可能对应一次重大设备故障；若‘性能时间’持续偏低，说明设备长期未达设计速度，需排查工艺或维护问题；而‘良品率’的波动则可能暴露质量控制薄弱环节。管理者可结合具体业务事件（如换型、维修、原料批次变更）进行根因分析。
             </div>
             """, unsafe_allow_html=True)
+
+            # 使用Plotly创建子图
+            from plotly.subplots import make_subplots
             factors = ['设备有效利用率', '性能时间', '良品率']
             colors = ['red', 'blue', 'green']
-            fig2, axes = plt.subplots(1, 3, figsize=(9, 2.5), dpi=150)
-            for i, (factor, color) in enumerate(zip(factors, colors)):
-                axes[i].plot(self.df['时间'], self.df[factor], color=color, marker='s', linewidth=1, label=factor,
-                             markersize=1.5)
-                axes[i].set_title(f'{factor}时间趋势', fontsize=8, fontweight='bold')
-                axes[i].set_ylabel(factor, fontsize=7)
-                axes[i].tick_params(axis='x', rotation=45, labelsize=6)
-                axes[i].tick_params(axis='y', labelsize=6)
-                axes[i].grid(True, alpha=0.3)
-                axes[i].legend(fontsize=6)
-            plt.tight_layout()
-            st.pyplot(fig2, use_container_width=True)
+
+            fig2 = make_subplots(rows=1, cols=3, subplot_titles=factors)
+
+            for i, (factor, color) in enumerate(zip(factors, colors), 1):
+                fig2.add_trace(
+                    go.Scatter(
+                        x=self.df['时间'],
+                        y=self.df[factor],
+                        mode='lines+markers',
+                        name=factor,
+                        line=dict(color=color, width=1),
+                        marker=dict(size=2)
+                    ),
+                    row=1, col=i
+                )
+
+            fig2.update_layout(
+                height=300,
+                showlegend=False,
+                font=dict(size=10)
+            )
+
+            # 更新子图标题
+            for i in range(3):
+                fig2.layout.annotations[i].update(font=dict(size=12, weight='bold'))
+
+            st.plotly_chart(fig2, use_container_width=True)
 
             # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-            # 3. 相关性热力图
+            # 3. 相关性热力图 - 修改为Plotly版本
             st.subheader("3. 相关性热力图")
             st.markdown("""
             <div style="background-color: #f8f9fa; padding: 12px; border-radius: 8px; border-left: 4px solid #f8f9fa; margin-bottom: 10px; font-size: 13px; line-height: 1.5;">
@@ -333,18 +354,39 @@ def run_oee_system():
             💡 <strong>业务洞察</strong>：颜色越红（正相关）或越蓝（负相关），说明该因素对OEE的影响越直接。管理者可据此判断哪些环节的改进能最有效提升整体设备效率。例如，若‘设备有效利用率’与OEE高度正相关，说明减少停机是提效关键。
             </div>
             """, unsafe_allow_html=True)
-            fig3, ax3 = plt.subplots(figsize=(4, 3), dpi=150)
+
+            # 计算相关性矩阵
             corr_matrix = self.df[['OEE', '设备有效利用率', '性能时间', '良品率']].corr()
-            sns.heatmap(corr_matrix, annot=True, cmap='coolwarm', center=0, fmt='.3f',
-                        square=True, cbar_kws={"shrink": .8}, ax=ax3, annot_kws={"size": 8})
-            ax3.set_title('OEE与各因素相关性热力图', fontsize=10, fontweight='bold')
-            ax3.tick_params(axis='x', labelsize=7)
-            ax3.tick_params(axis='y', labelsize=7)
-            plt.tight_layout()
-            st.pyplot(fig3, use_container_width=True)
+
+            # 使用Plotly创建热力图
+            fig3 = go.Figure(data=go.Heatmap(
+                z=corr_matrix.values,
+                x=corr_matrix.columns,
+                y=corr_matrix.index,
+                colorscale='RdBu_r',
+                zmid=0,
+                text=corr_matrix.round(3).values,
+                texttemplate="%{text}",
+                textfont={"size": 12},
+                hoverinfo="none"
+            ))
+
+            fig3.update_layout(
+                title={
+                    'text': "OEE与各因素相关性热力图",
+                    'font': {'size': 16, 'weight': 'bold'}
+                },
+                xaxis_title="因素",
+                yaxis_title="因素",
+                height=400,
+                width=500,
+                font=dict(size=12)
+            )
+
+            st.plotly_chart(fig3, use_container_width=True)
 
             # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-            # 4. 散点图矩阵
+            # 4. 散点图矩阵 - 迁移到Plotly版本
             st.subheader("4. 散点图矩阵")
             st.markdown("""
             <div style="background-color: #f8f9fa; padding: 12px; border-radius: 8px; border-left: 4px solid #f8f9fa; margin-bottom: 10px; font-size: 13px; line-height: 1.5;">
@@ -354,21 +396,30 @@ def run_oee_system():
             💡 <strong>业务洞察</strong>：散点图能暴露异常值、聚类或拐点。例如，若‘良品率’在高OEE区间突然下降，可能意味着高速生产牺牲了质量——这提示管理者需在效率与质量间寻找平衡点，避免盲目提速。
             </div>
             """, unsafe_allow_html=True)
-            fig4, axes = plt.subplots(4, 4, figsize=(8, 8), dpi=120)
+
+            # 使用Plotly Express创建散点图矩阵
             scatter_data = self.df[['OEE', '设备有效利用率', '性能时间', '良品率']]
-            for i in range(4):
-                for j in range(4):
-                    if i == j:
-                        axes[i, j].hist(scatter_data.iloc[:, i], alpha=0.8, bins=8)
-                        axes[i, j].set_title(f'{scatter_data.columns[i]}分布', fontsize=6)
-                        axes[i, j].tick_params(labelsize=5)
-                    else:
-                        axes[i, j].scatter(scatter_data.iloc[:, j], scatter_data.iloc[:, i], alpha=0.6, s=8)
-                        axes[i, j].set_xlabel(scatter_data.columns[j], fontsize=6)
-                        axes[i, j].set_ylabel(scatter_data.columns[i], fontsize=6)
-                        axes[i, j].tick_params(labelsize=5)
-            plt.tight_layout()
-            st.pyplot(fig4, use_container_width=True)
+
+            # 创建散点图矩阵
+            fig4 = px.scatter_matrix(
+                scatter_data,
+                dimensions=scatter_data.columns,
+                title="OEE与各因素散点图矩阵",
+                height=600
+            )
+
+            # 更新布局
+            fig4.update_layout(
+                title={
+                    'text': "OEE与各因素散点图矩阵",
+                    'font': {'size': 16, 'weight': 'bold'}
+                }
+            )
+
+            # 更新对角线上的直方图
+            fig4.update_traces(diagonal_visible=True, showupperhalf=True, showlowerhalf=True)
+
+            st.plotly_chart(fig4, use_container_width=True)
 
             # 计算月度波动数据（在使用前定义）
             monthly_std = self.df[['OEE', '设备有效利用率', '性能时间', '良品率']].std()
@@ -389,17 +440,23 @@ def run_oee_system():
                 if hasattr(self, 'ranking') and len(self.ranking) > 0:
                     ranking_values = [max(0.01, v) if not np.isnan(v) else 0.01 for v in self.ranking.values]
                     ranking_labels = self.ranking.index
-                    fig5, ax5 = plt.subplots(figsize=(3.5, 2.8), dpi=180)
-                    wedges, texts, autotexts = ax5.pie(ranking_values, labels=ranking_labels, autopct='%1.1f%%',
-                                                       colors=['#ff9999', '#66b3ff', '#99ff99'],
-                                                       textprops={'fontsize': 6})
-                    for text in texts:
-                        text.set_fontsize(6)
-                    for autotext in autotexts:
-                        autotext.set_fontsize(6)
-                    ax5.set_title('贡献度分布', fontsize=9, fontweight='bold', pad=10)
-                    plt.tight_layout()
-                    st.pyplot(fig5, use_container_width=True)
+
+                    # 使用Plotly饼图
+                    fig5 = go.Figure(data=[go.Pie(
+                        labels=ranking_labels,
+                        values=ranking_values,
+                        hole=0.3,
+                        textinfo='percent+label',
+                        insidetextorientation='radial'
+                    )])
+                    fig5.update_layout(
+                        title={
+                            'text': "贡献度分布",
+                            'font': {'size': 14, 'weight': 'bold'}
+                        },
+                        height=300
+                    )
+                    st.plotly_chart(fig5, use_container_width=True)
 
             with col2:
                 st.subheader("6. OEE组成分析")
@@ -422,16 +479,23 @@ def run_oee_system():
                 components = [avg_oee, quality_loss, performance_loss, utilization_loss]
                 labels = ['OEE', '质量', '性能', '可用性']
                 colors = ['#2ecc71', '#e74c3c', '#f39c12', '#3498db']
-                fig6, ax6 = plt.subplots(figsize=(3.5, 2.8), dpi=180)
-                wedges, texts, autotexts = ax6.pie(components, labels=labels, colors=colors, autopct='%1.1f%%',
-                                                   textprops={'fontsize': 6})
-                for text in texts:
-                    text.set_fontsize(6)
-                for autotext in autotexts:
-                    autotext.set_fontsize(6)
-                ax6.set_title('OEE组成(平均)', fontsize=9, fontweight='bold', pad=10)
-                plt.tight_layout()
-                st.pyplot(fig6, use_container_width=True)
+
+                # 使用Plotly饼图
+                fig6 = go.Figure(data=[go.Pie(
+                    labels=labels,
+                    values=components,
+                    hole=0.3,
+                    marker_colors=colors,
+                    textinfo='percent+label'
+                )])
+                fig6.update_layout(
+                    title={
+                        'text': "OEE组成(平均)",
+                        'font': {'size': 14, 'weight': 'bold'}
+                    },
+                    height=300
+                )
+                st.plotly_chart(fig6, use_container_width=True)
 
             # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
             # 7. 各指标波动程度
@@ -444,20 +508,26 @@ def run_oee_system():
             💡 <strong>业务洞察</strong>：波动大的指标意味着过程不稳定，是质量或交付风险的源头。例如，若‘良品率’波动剧烈，可能反映来料不稳或操作不规范，建议加强过程控制（SPC）和标准化作业，而非仅追责操作员。
             </div>
             """, unsafe_allow_html=True)
-            fig7, ax7 = plt.subplots(figsize=(5, 2.5), dpi=180)
-            bars = ax7.bar(monthly_std.index, monthly_std.values, color=['blue', 'red', 'green', 'orange'], width=0.6)
-            ax7.set_title('月度波动程度(标准差)', fontsize=10, fontweight='bold')
-            ax7.tick_params(axis='x', rotation=45, labelsize=7)
-            ax7.tick_params(axis='y', labelsize=7)
 
-            for bar in bars:
-                height = bar.get_height()
-                ax7.text(bar.get_x() + bar.get_width() / 2., height,
-                         f'{height:.3f}',
-                         ha='center', va='bottom', fontsize=6)
-
-            plt.tight_layout()
-            st.pyplot(fig7, use_container_width=True)
+            # 使用Plotly柱状图
+            fig7 = go.Figure(data=[go.Bar(
+                x=monthly_std.index,
+                y=monthly_std.values,
+                marker_color=['blue', 'red', 'green', 'orange'],
+                text=monthly_std.round(3).values,
+                textposition='auto',
+            )])
+            fig7.update_layout(
+                title={
+                    'text': "月度波动程度(标准差)",
+                    'font': {'size': 16, 'weight': 'bold'}
+                },
+                xaxis_title="指标",
+                yaxis_title="标准差",
+                height=300,
+                font=dict(size=12)
+            )
+            st.plotly_chart(fig7, use_container_width=True)
 
             # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
             # 关键统计指标
@@ -513,7 +583,6 @@ def run_oee_system():
             }
 
             # ================ 一、可执行改进建议 ================
-            #st.markdown("## ✅ 一、可执行改进建议")
             st.markdown("##  一、可执行改进建议")
             # --- 1.1 主要改进方向 ---
             st.markdown("### 🎯 1.1 主要改进方向")
@@ -591,7 +660,6 @@ def run_oee_system():
             st.markdown(table_html, unsafe_allow_html=True)
 
             # --- 2.1 波动最大的因素（恢复你丢失的内容）---
-            #st.markdown("### 2.1 波动最大的因素")
             most_volatile = self.df[['设备有效利用率', '性能时间', '良品率']].std().idxmax()
             volatility = self.df[most_volatile].std()
             st.markdown(f"**波动最大的因素**: {most_volatile}（标准差: {volatility:.4f}）——建议加强过程稳定性控制。")
@@ -655,24 +723,64 @@ def run_oee_system():
                     'font-weight': 'bold'
                 })
                 st.dataframe(styled_forecast_df)
-                fig, ax = plt.subplots(figsize=(5, 2.5))
-                ax.plot(self.df['时间'], self.df['OEE'], 'bo-',
-                        label='历史OEE', linewidth=1.5, markersize=3)
-                ax.plot(future_dates, forecast_df['预测OEE'], 'ro-',
-                        label='预测OEE', linewidth=1.5, markersize=3)
-                ax.fill_between(future_dates,
-                                forecast_df['预测下限'],
-                                forecast_df['预测上限'],
-                                color='red', alpha=0.2, label='预测区间')
-                ax.set_title('OEE历史趋势与预测', fontsize=9, fontweight='bold')
-                ax.set_xlabel('时间', fontsize=7)
-                ax.set_ylabel('OEE', fontsize=7)
-                ax.legend(fontsize=6)
-                ax.tick_params(labelsize=6)
-                ax.grid(True, alpha=0.3)
-                plt.xticks(rotation=45)
-                plt.tight_layout()
-                st.pyplot(fig)
+
+                # 使用Plotly替代matplotlib - 修复错误
+                fig = go.Figure()
+
+                # 历史数据
+                fig.add_trace(go.Scatter(
+                    x=self.df['时间'],
+                    y=self.df['OEE'],
+                    mode='lines+markers',
+                    name='历史OEE',
+                    line=dict(width=2, color='blue'),
+                    marker=dict(size=4)
+                ))
+
+                # 预测数据
+                fig.add_trace(go.Scatter(
+                    x=future_dates,
+                    y=forecast_df['预测OEE'],
+                    mode='lines+markers',
+                    name='预测OEE',
+                    line=dict(width=2, color='red', dash='dash'),
+                    marker=dict(size=4)
+                ))
+
+                # 预测区间 - 修复这里的关键错误
+                # 将DatetimeIndex转换为Series以便concat
+                future_dates_series = pd.Series(future_dates)
+                future_dates_reversed = pd.Series(future_dates[::-1])
+
+                # 创建预测区间的x和y数据
+                confidence_x = pd.concat([future_dates_series, future_dates_reversed])
+                confidence_y = pd.concat([
+                    forecast_df['预测上限'],
+                    forecast_df['预测下限'][::-1]
+                ])
+
+                fig.add_trace(go.Scatter(
+                    x=confidence_x,
+                    y=confidence_y,
+                    fill='toself',
+                    fillcolor='rgba(255,0,0,0.2)',
+                    line=dict(color='rgba(255,255,255,0)'),
+                    name='预测区间',
+                    showlegend=True
+                ))
+
+                fig.update_layout(
+                    title={
+                        'text': "OEE历史趋势与预测",
+                        'font': {'size': 16, 'weight': 'bold'}
+                    },
+                    xaxis_title="时间",
+                    yaxis_title="OEE",
+                    height=400,
+                    showlegend=True,
+                    font=dict(size=12)
+                )
+                st.plotly_chart(fig, use_container_width=True)
                 return forecast_df
             except Exception as e:
                 st.error(f"预测失败: {e}")
@@ -1216,7 +1324,6 @@ def main():
 
 if __name__ == "__main__":
     main()
-
 
 
 
