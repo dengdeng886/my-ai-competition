@@ -265,18 +265,18 @@ def run_oee_system():
             st.header("📈 可视化洞察分析")
 
             # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-            # 1. 时间序列趋势图
+            # 1. 时间序列趋势图 - 添加外边框和竖线
             st.subheader("1. 时间序列趋势图")
             st.markdown("""
             <div style="background-color: #f8f9fa; padding: 12px; border-radius: 8px; border-left: 4px solid #f8f9fa; margin-bottom: 10px; font-size: 13px; line-height: 1.5;">
             🔍 <strong>作用</strong>：展示OEE整体随时间的变化趋势，帮助识别设备效率的长期走势、季节性波动或异常点。
             </div>
             <div style="background-color: #f8f9fa; padding: 12px; border-radius: 8px; border-left: 4px solid #f8f9fa; font-size: 13px; line-height: 1.5;">
-            💡 <strong>业务洞察</strong>：OEE趋势图是判断设备运行健康度的‘心电图’。若OEE持续下降，可能反映设备老化、维护不足或工艺退化；若出现突发性下跌，应结合生产日志排查是否发生重大停机、换型或质量问题。管理者可据此设定预警阈值，实现主动干预。
+            💡 <strong>业务洞察</strong>：OEE趋势图是判断设备运行健康度的'心电图'。若OEE持续下降，可能反映设备老化、维护不足或工艺退化；若出现突发性下跌，应结合生产日志排查是否发生重大停机、换型或质量问题。管理者可据此设定预警阈值，实现主动干预。
             </div>
             """, unsafe_allow_html=True)
 
-            # 使用Plotly替代matplotlib
+            # 使用Plotly替代matplotlib - 添加外边框和竖线
             fig1 = go.Figure()
             fig1.add_trace(go.Scatter(
                 x=self.df['时间'],
@@ -286,6 +286,8 @@ def run_oee_system():
                 line=dict(width=2, color='blue'),
                 marker=dict(size=4)
             ))
+
+            # 添加外边框和网格线样式
             fig1.update_layout(
                 title={
                     'text': "OEE时间趋势",
@@ -295,28 +297,59 @@ def run_oee_system():
                 yaxis_title="OEE",
                 height=300,
                 showlegend=True,
-                font=dict(size=12)
+                font=dict(size=12),
+                # 添加外边框样式
+                plot_bgcolor='white',
+                paper_bgcolor='white',
+                # X轴样式 - 添加外边框和网格线
+                xaxis=dict(
+                    showline=True,
+                    linewidth=1,
+                    linecolor='black',
+                    mirror=True,
+                    showgrid=True,
+                    gridwidth=1,
+                    gridcolor='rgba(200,200,200,0.5)',
+                    showticklabels=True
+                ),
+                # Y轴样式 - 添加外边框和网格线
+                yaxis=dict(
+                    showline=True,
+                    linewidth=1,
+                    linecolor='black',
+                    mirror=True,
+                    showgrid=True,
+                    gridwidth=1,
+                    gridcolor='rgba(200,200,200,0.5)',
+                    showticklabels=True
+                )
             )
             st.plotly_chart(fig1, use_container_width=True)
 
             # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-            # 2. 各因素时间趋势
+            # 2. 各因素时间趋势 - 修复标题重叠问题
             st.subheader("2. 各因素时间趋势")
             st.markdown("""
             <div style="background-color: #f8f9fa; padding: 12px; border-radius: 8px; border-left: 4px solid #f8f9fa; margin-bottom: 10px; font-size: 13px; line-height: 1.5;">
             🔍 <strong>作用</strong>：分别展示设备有效利用率、性能时间和良品率随时间的变化趋势，帮助识别各OEE组成要素的稳定性与变化模式。
             </div>
             <div style="background-color: #f8f9fa; padding: 12px; border-radius: 8px; border-left: 4px solid #f8f9fa; font-size: 13px; line-height: 1.5;">
-            💡 <strong>业务洞察</strong>：通过观察各因素的时间走势，可判断效率损失的来源是否具有周期性或突发性。例如，若‘设备有效利用率’在某月骤降，可能对应一次重大设备故障；若‘性能时间’持续偏低，说明设备长期未达设计速度，需排查工艺或维护问题；而‘良品率’的波动则可能暴露质量控制薄弱环节。管理者可结合具体业务事件（如换型、维修、原料批次变更）进行根因分析。
+            💡 <strong>业务洞察</strong>：通过观察各因素的时间走势，可判断效率损失的来源是否具有周期性或突发性。例如，若'设备有效利用率'在某月骤降，可能对应一次重大设备故障；若'性能时间'持续偏低，说明设备长期未达设计速度，需排查工艺或维护问题；而'良品率'的波动则可能暴露质量控制薄弱环节。管理者可结合具体业务事件（如换型、维修、原料批次变更）进行根因分析。
             </div>
             """, unsafe_allow_html=True)
 
-            # 使用Plotly创建子图
+            # 使用Plotly创建子图 - 修复标题重叠问题
             from plotly.subplots import make_subplots
             factors = ['设备有效利用率', '性能时间', '良品率']
             colors = ['red', 'blue', 'green']
 
-            fig2 = make_subplots(rows=1, cols=3, subplot_titles=factors)
+            fig2 = make_subplots(
+                rows=1,
+                cols=3,
+                subplot_titles=factors,
+                horizontal_spacing=0.08,  # 水平间距
+                vertical_spacing=0.15  # 增加垂直间距，为标题留出更多空间
+            )
 
             for i, (factor, color) in enumerate(zip(factors, colors), 1):
                 fig2.add_trace(
@@ -332,26 +365,61 @@ def run_oee_system():
                 )
 
             fig2.update_layout(
-                height=300,
+                height=350,  # 增加高度以容纳标题
                 showlegend=False,
-                font=dict(size=10)
+                font=dict(size=10),
+                plot_bgcolor='white',
+                paper_bgcolor='white',
+                margin=dict(t=60, b=60, l=40, r=40)  # 增加上边距确保标题有足够空间
             )
 
-            # 更新子图标题
-            for i in range(3):
-                fig2.layout.annotations[i].update(font=dict(size=12, weight='bold'))
+            # 更新子图标题 - 调整标题位置和样式
+            for i, annotation in enumerate(fig2.layout.annotations):
+                annotation.update(
+                    font=dict(size=12, weight='bold'),
+                    y=1.05,  # 将标题向上移动，避免与图表内容重叠
+                    yanchor='bottom'  # 锚点设置为底部
+                )
+
+            # 为每个子图添加边框、网格和坐标轴标签
+            for i in range(1, 4):
+                # 设置X轴样式 - 添加外边框和网格线
+                fig2.update_xaxes(
+                    showline=True,
+                    linewidth=1,
+                    linecolor='black',
+                    mirror=True,
+                    showgrid=True,
+                    gridwidth=1,
+                    gridcolor='rgba(200,200,200,0.5)',
+                    showticklabels=True,
+                    row=1, col=i
+                )
+
+                # 设置Y轴样式 - 添加外边框和网格线
+                fig2.update_yaxes(
+                    showline=True,
+                    linewidth=1,
+                    linecolor='black',
+                    mirror=True,
+                    showgrid=True,
+                    gridwidth=1,
+                    gridcolor='rgba(200,200,200,0.5)',
+                    showticklabels=True,
+                    row=1, col=i
+                )
 
             st.plotly_chart(fig2, use_container_width=True)
 
             # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-            # 3. 相关性热力图 - 修改为Plotly版本
+            # 3. 相关性热力图 - 保持不变
             st.subheader("3. 相关性热力图")
             st.markdown("""
             <div style="background-color: #f8f9fa; padding: 12px; border-radius: 8px; border-left: 4px solid #f8f9fa; margin-bottom: 10px; font-size: 13px; line-height: 1.5;">
             🔍 <strong>作用</strong>：展示OEE与各组成因素之间的线性相关强度。
             </div>
             <div style="background-color: #f8f9fa; padding: 12px; border-radius: 8px; border-left: 4px solid #f8f9fa; font-size: 13px; line-height: 1.5;">
-            💡 <strong>业务洞察</strong>：颜色越红（正相关）或越蓝（负相关），说明该因素对OEE的影响越直接。管理者可据此判断哪些环节的改进能最有效提升整体设备效率。例如，若‘设备有效利用率’与OEE高度正相关，说明减少停机是提效关键。
+            💡 <strong>业务洞察</strong>：颜色越红（正相关）或越蓝（负相关），说明该因素对OEE的影响越直接。管理者可据此判断哪些环节的改进能最有效提升整体设备效率。例如，若'设备有效利用率'与OEE高度正相关，说明减少停机是提效关键。
             </div>
             """, unsafe_allow_html=True)
 
@@ -386,7 +454,7 @@ def run_oee_system():
             st.plotly_chart(fig3, use_container_width=True)
 
             # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-            # 4. 散点图矩阵 - 4×4子图版本（修复标题大小和边框问题）
+            # 4. 散点图矩阵 - 保持不变
             st.subheader("4. 散点图矩阵")
             st.markdown("""
             <div style="background-color: #f8f9fa; padding: 12px; border-radius: 8px; border-left: 4px solid #f8f9fa; margin-bottom: 10px; font-size: 13px; line-height: 1.5;">
@@ -533,6 +601,7 @@ def run_oee_system():
 
             st.plotly_chart(fig4, use_container_width=True)
 
+            # 其余图表保持不变...
             # 计算月度波动数据（在使用前定义）
             monthly_std = self.df[['OEE', '设备有效利用率', '性能时间', '良品率']].std()
 
@@ -546,7 +615,7 @@ def run_oee_system():
                 🔍 <strong>作用</strong>：量化各因素对OEE变动的相对贡献大小。
                 </div>
                 <div style="background-color: #f8f9fa; padding: 12px; border-radius: 8px; border-left: 4px solid #f8f9fa; font-size: 13px; line-height: 1.5;">
-                💡 <strong>业务洞察</strong>：贡献度高的因素应优先投入资源改进。例如，若‘性能时间’贡献最大，说明设备运行速度或小停机是瓶颈，建议开展TPM（全员生产维护）或优化工艺参数，而非盲目增加设备数量。
+                💡 <strong>业务洞察</strong>：贡献度高的因素应优先投入资源改进。例如，若'性能时间'贡献最大，说明设备运行速度或小停机是瓶颈，建议开展TPM（全员生产维护）或优化工艺参数，而非盲目增加设备数量。
                 </div>
                 """, unsafe_allow_html=True)
                 if hasattr(self, 'ranking') and len(self.ranking) > 0:
@@ -577,7 +646,7 @@ def run_oee_system():
                 🔍 <strong>作用</strong>：分解OEE为三大损失（可用性、性能、质量），直观展示效率损失结构。
                 </div>
                 <div style="background-color: #f8f9fa; padding: 12px; border-radius: 8px; border-left: 4px solid #f8f9fa; font-size: 13px; line-height: 1.5;">
-                💡 <strong>业务洞察</strong>：饼图揭示‘看不见的浪费’。例如，若‘性能损失’占比最高，说明设备虽在运行但未达理想速度——这往往是改善空间最大的环节。管理者应聚焦于此，而非仅关注设备是否开机。
+                💡 <strong>业务洞察</strong>：饼图揭示'看不见的浪费'。例如，若'性能损失'占比最高，说明设备虽在运行但未达理想速度——这往往是改善空间最大的环节。管理者应聚焦于此，而非仅关注设备是否开机。
                 </div>
                 """, unsafe_allow_html=True)
                 avg_utilization = self.df['设备有效利用率'].mean()
@@ -617,7 +686,7 @@ def run_oee_system():
             🔍 <strong>作用</strong>：通过标准差衡量各指标的稳定性，识别波动最大的环节。
             </div>
             <div style="background-color: #f8f9fa; padding: 12px; border-radius: 8px; border-left: 4px solid #f8f9fa; font-size: 13px; line-height: 1.5;">
-            💡 <strong>业务洞察</strong>：波动大的指标意味着过程不稳定，是质量或交付风险的源头。例如，若‘良品率’波动剧烈，可能反映来料不稳或操作不规范，建议加强过程控制（SPC）和标准化作业，而非仅追责操作员。
+            💡 <strong>业务洞察</strong>：波动大的指标意味着过程不稳定，是质量或交付风险的源头。例如，若'良品率'波动剧烈，可能反映来料不稳或操作不规范，建议加强过程控制（SPC）和标准化作业，而非仅追责操作员。
             </div>
             """, unsafe_allow_html=True)
 
@@ -649,7 +718,7 @@ def run_oee_system():
             🔍 <strong>作用</strong>：提供OEE及其三大组成要素（设备有效利用率、性能时间、良品率）的核心统计摘要，包括均值、标准差、最小/最大值、四分位数等，用于快速评估数据分布特征与整体水平。
             </div>
             <div style="background-color: #f8f9fa; padding: 12px; border-radius: 8px; border-left: 4px solid #f8f9fa; font-size: 13px; line-height: 1.5;">
-            💡 <strong>业务洞察</strong>：统计指标是判断设备运行稳定性和效率基线的‘体检报告’。例如，若OEE均值高但标准差大，说明设备效率波动剧烈，可能存在偶发性故障或操作不规范；若良品率的最小值远低于均值，提示某些批次存在严重质量问题。管理者可据此设定控制限、识别异常时段，并为持续改进提供基准参考。
+            💡 <strong>业务洞察</strong>：统计指标是判断设备运行稳定性和效率基线的'体检报告'。例如，若OEE均值高但标准差大，说明设备效率波动剧烈，可能存在偶发性故障或操作不规范；若良品率的最小值远低于均值，提示某些批次存在严重质量问题。管理者可据此设定控制限、识别异常时段，并为持续改进提供基准参考。
             </div>
             """, unsafe_allow_html=True)
             stats_df = self.df[['OEE', '设备有效利用率', '性能时间', '良品率']].describe()
