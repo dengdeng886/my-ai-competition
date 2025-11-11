@@ -1206,7 +1206,7 @@ def run_production_system():
                 st.sidebar.warning("请选择一个日期范围")
                 st.stop()
             self.selected_date = self.date_range[1]
-            st.sidebar.slider("缓冲区低预警阈值", 0.1, 0.5, 0.2, 0.1, key="low_thresh")
+            # 移除低缓冲预警阈值滑块，只保留高预警阈值
             st.sidebar.slider("缓冲区高预警阈值", 0.5, 0.9, 0.8, 0.1, key="high_thresh")
             st.sidebar.selectbox("预测周期（天）", [3, 7, 14], index=0, key="pred_days")
 
@@ -1261,20 +1261,56 @@ def run_production_system():
             if df.empty:
                 st.warning("所选日期范围内无生产数据")
                 return
-            fig = px.line(
-                df, x='日期',
-                y=['总产量(瓶)', '计划产量(瓶)'],
-                labels={'value': '产量(瓶)', 'variable': '类型'},
-                title="车间日产量趋势"
+
+            # 使用go.Figure，保持与预测图表一致
+            fig = go.Figure()
+
+            # 总产量线 - 保持当前的深蓝色
+            fig.add_trace(go.Scatter(
+                x=df['日期'],
+                y=df['总产量(瓶)'],
+                mode='lines+markers',
+                name='总产量',
+                line=dict(width=2, color='#1f77b4'),  # 保持颜色，调整线宽与预测图表一致
+                marker=dict(size=4)  # 调整大小与预测图表一致
+            ))
+
+            # 计划产量线 - 保持当前的橙色
+            fig.add_trace(go.Scatter(
+                x=df['日期'],
+                y=df['计划产量(瓶)'],
+                mode='lines+markers',
+                name='计划产量',
+                line=dict(width=2, color='#ff7f0e'),  # 保持颜色，调整线宽与预测图表一致
+                marker=dict(size=4)  # 调整大小与预测图表一致
+            ))
+
+            # 添加平均计划线 - 使用更清晰的深灰色，并添加标注
+            avg_plan = df['计划产量(瓶)'].mean()
+            fig.add_hline(
+                y=avg_plan,
+                line_dash="dot",
+                line_color="#333333",  # 改为深灰色，更清晰
+                line_width=2,
+                annotation_text=f"平均计划",  # 添加标注文字
+                annotation_position="bottom right",  # 标注位置在右下角
+                annotation_font_size=12,
+                annotation_font_color="#333333"
             )
-            fig.add_hline(y=df['计划产量(瓶)'].mean(), line_dash="dash", line_color="red", annotation_text="平均计划")
-            # === 新增：增强 Plotly 标题 ===
+
+            # 更新布局，与预测图表保持一致
             fig.update_layout(
                 title={
                     'text': "车间日产量趋势",
                     'font': {'size': 18, 'weight': 'bold'}
-                }
+                },
+                xaxis_title="日期",
+                yaxis_title="产量(瓶)",
+                height=400,
+                showlegend=True,
+                font=dict(size=12)
             )
+
             st.plotly_chart(fig, use_container_width=True)
 
         def _plot_prophet_prediction(self):
@@ -1305,22 +1341,42 @@ def run_production_system():
             pred_df['类型'] = '预测'
             hist_df = hist_df.rename(columns={'ds': '日期', 'y': '总产量(瓶)'})
             plot_df = pd.concat([hist_df, pred_df], ignore_index=True)
-            fig = px.line(
-                plot_df,
-                x='日期',
-                y='总产量(瓶)',
-                color='类型',
-                title="日产量预测趋势",
-                line_dash='类型',
-                labels={'总产量(瓶)': '产量(瓶)'}
-            )
-            fig.update_traces(mode='lines+markers')
-            # === 新增：增强 Plotly 标题 ===
+
+            # 使用go.Figure替代px.line，以便更精确控制颜色
+            fig = go.Figure()
+
+            # 历史数据 - 蓝色
+            hist_data = plot_df[plot_df['类型'] == '历史']
+            fig.add_trace(go.Scatter(
+                x=hist_data['日期'],
+                y=hist_data['总产量(瓶)'],
+                mode='lines+markers',
+                name='历史',
+                line=dict(width=2, color='blue'),
+                marker=dict(size=4)
+            ))
+
+            # 预测数据 - 红色
+            pred_data = plot_df[plot_df['类型'] == '预测']
+            fig.add_trace(go.Scatter(
+                x=pred_data['日期'],
+                y=pred_data['总产量(瓶)'],
+                mode='lines+markers',
+                name='预测',
+                line=dict(width=2, color='red', dash='dash'),
+                marker=dict(size=4, color='red')
+            ))
+
             fig.update_layout(
                 title={
                     'text': "日产量预测趋势",
                     'font': {'size': 18, 'weight': 'bold'}
-                }
+                },
+                xaxis_title="日期",
+                yaxis_title="产量(瓶)",
+                height=400,
+                showlegend=True,
+                font=dict(size=12)
             )
             st.plotly_chart(fig, use_container_width=True)
 
@@ -1335,10 +1391,10 @@ def run_production_system():
 
             df['库存占比'] = df['期末数量(盘)'] / self.SAFE_BUFFER
 
-            # 创建折线图 - 完全匹配产量趋势图的样式
+            # 创建折线图
             fig = go.Figure()
 
-            # 添加主趋势线 - 使用与其他图表一致的蓝色
+            # 添加主趋势线
             fig.add_trace(go.Scatter(
                 x=df['日期'],
                 y=df['库存占比'],
@@ -1346,11 +1402,11 @@ def run_production_system():
                 name='库存占比',
                 line=dict(
                     width=2,
-                    color='#1f77b4',  # 修改为与其他图表一致的蓝色
+                    color='#1f77b4',
                 ),
                 marker=dict(
                     size=4,
-                    color='#1f77b4'  # 标记点也使用相同颜色
+                    color='#1f77b4'
                 ),
                 hovertemplate=(
                         '<b>日期</b>: %{x|%Y-%m-%d}<br>' +
@@ -1359,9 +1415,8 @@ def run_production_system():
                 )
             ))
 
-            # 添加预警线
+            # 只保留高预警线，去掉低预警线
             high_thresh = st.session_state.get("high_thresh", 0.8)
-            low_thresh = st.session_state.get("low_thresh", 0.2)
 
             fig.add_hline(
                 y=high_thresh,
@@ -1372,16 +1427,7 @@ def run_production_system():
                 annotation_position="bottom right"
             )
 
-            fig.add_hline(
-                y=low_thresh,
-                line_dash="dash",
-                line_color="green",
-                line_width=2,
-                annotation_text=f"低预警 {low_thresh:.0%}",
-                annotation_position="top right"
-            )
-
-            # 布局 - 完全匹配其他图表的标题样式
+            # 布局
             fig.update_layout(
                 title={
                     'text': "缓冲区库存占比趋势",
@@ -1483,7 +1529,7 @@ def run_production_system():
                 # === 新增：整体业务价值说明（可收放） ===
                 with st.expander("系统整体业务说明", expanded=False):
                     st.markdown("""
-                                **本系统构建了“监控 → 预测 → 调节”的智能闭环，实现三大核心业务价值：**
+                                **本系统构建了"监控 → 预测 → 调节"的智能闭环，实现三大核心业务价值：**
 
                                 - **实时监控**：动态追踪产量、效率、缓冲库存等关键指标，确保生产透明可控；
                                 - **智能预测**：基于历史数据预测未来产能趋势，提前识别交付风险；
@@ -1494,7 +1540,7 @@ def run_production_system():
 
                 # === 图1：日产量趋势 + 说明卡片 ===
                 self._plot_production_trends()
-                with st.expander("日产量趋势图作用与业务洞察", expanded=False):#📊
+                with st.expander("日产量趋势图作用与业务洞察", expanded=False):  # 📊
                     st.markdown("""
                     **作用**：直观展示实际产量与计划产量的每日对比，识别波动与趋势。  
                     **业务洞察**：帮助管理者快速判断产能达成情况，及时干预偏离计划的生产日，保障订单交付稳定性。
@@ -1502,7 +1548,7 @@ def run_production_system():
 
                 # === 图2：产量预测 + 说明卡片 ===
                 self._plot_prophet_prediction()
-                with st.expander("产量预测图作用与业务洞察", expanded=False):#🔮
+                with st.expander("产量预测图作用与业务洞察", expanded=False):  # 🔮
                     st.markdown("""
                     **作用**：基于历史数据预测未来3-14天产量走势，量化不确定性区间。  
                     **业务洞察**：提前预警潜在产能缺口，支持排产、人力与物料的前瞻性调度，降低交付风险。
@@ -1516,9 +1562,9 @@ def run_production_system():
 
             # === 图3：缓冲区分析 + 说明卡片 ===
             self._show_buffer_analysis(current_state)
-            with st.expander("缓冲区库存占比图作用与业务洞察", expanded=False):#📦
+            with st.expander("缓冲区库存占比图作用与业务洞察", expanded=False):  # 📦
                 st.markdown("""
-                **作用**：监控缓冲区库存水平，识别积压或断料风险。  
+                **作用**：监控缓冲区库存水平，识别积压。  
                 **业务洞察**：通过动态平衡灌装与包装节拍，减少在制品堆积，提升产线协同效率，避免非计划停机。
                 """)
 
