@@ -1159,12 +1159,15 @@ def run_production_system():
             risks = []
             recommendations = []
             buffer_score = predictions.get('buffer_risk_score', 0.5)
+
+            # 多级缓冲区库存预警
             if buffer_score > 0.8:
-                risks.append("⚠️ 缓冲区库存过高，存在积压风险")
-                recommendations.append("💡 建议提高下游包装线速度或暂停上游灌装")
-            elif buffer_score < 0.2:
-                risks.append("⚠️ 缓冲区库存不足，存在断料风险")
-                recommendations.append("💡 建议加快上游灌装速度或启用备用设备")
+                risks.append("🚨 缓冲区库存已满，存在严重积压风险")
+                recommendations.append("💡 建议立即提高下游包装线速度或暂停上游灌装")
+            elif buffer_score > 0.5:
+                risks.append("⚠️ 缓冲区库存达到警戒水平")
+                recommendations.append("💡 建议关注缓冲区库存，适当调整生产节奏")
+
             bottleneck = predictions.get('bottleneck_severity', 0.0)
             if bottleneck > 0.6:
                 risks.append("⚠️ 发现严重产能瓶颈")
@@ -1206,8 +1209,10 @@ def run_production_system():
                 st.sidebar.warning("请选择一个日期范围")
                 st.stop()
             self.selected_date = self.date_range[1]
-            # 移除低缓冲预警阈值滑块，只保留高预警阈值
-            st.sidebar.slider("缓冲区高预警阈值", 0.5, 0.9, 0.8, 0.1, key="high_thresh")
+            # 修改为多级预警阈值设置
+            st.sidebar.subheader("缓冲区预警设置")
+            st.sidebar.slider("中级预警阈值", 0.3, 0.7, 0.5, 0.05, key="medium_thresh")
+            st.sidebar.slider("高级预警阈值", 0.6, 0.9, 0.8, 0.05, key="high_thresh")
             st.sidebar.selectbox("预测周期（天）", [3, 7, 14], index=0, key="pred_days")
 
         def _get_current_state(self):
@@ -1415,16 +1420,39 @@ def run_production_system():
                 )
             ))
 
-            # 只保留高预警线，去掉低预警线
+            # 添加多级预警线
+            medium_thresh = st.session_state.get("medium_thresh", 0.5)
             high_thresh = st.session_state.get("high_thresh", 0.8)
 
+            # 中级预警线（黄色）
+            fig.add_hline(
+                y=medium_thresh,
+                line_dash="dash",
+                line_color="orange",
+                line_width=2,
+                annotation_text=f"中级预警 {medium_thresh:.0%}",
+                annotation_position="bottom right"
+            )
+
+            # 高级预警线（红色）
             fig.add_hline(
                 y=high_thresh,
                 line_dash="dash",
                 line_color="red",
                 line_width=2,
-                annotation_text=f"高预警 {high_thresh:.0%}",
+                annotation_text=f"高级预警 {high_thresh:.0%}",
                 annotation_position="bottom right"
+            )
+
+            # 添加当前日期标记
+            current_buffer_ratio = state['buffer_risk_score']
+            fig.add_hline(
+                y=current_buffer_ratio,
+                line_dash="dot",
+                line_color="green",
+                line_width=3,
+                annotation_text=f"当前水平 {current_buffer_ratio:.1%}",
+                annotation_position="top right"
             )
 
             # 布局
@@ -1437,7 +1465,11 @@ def run_production_system():
                 yaxis_title="库存占比",
                 height=400,
                 showlegend=True,
-                font=dict(size=12)
+                font=dict(size=12),
+                yaxis=dict(
+                    tickformat=".0%",  # 显示百分比
+                    range=[0, min(1.2, max(df['库存占比'].max() * 1.1, high_thresh * 1.2))]  # 动态调整Y轴范围
+                )
             )
 
             st.plotly_chart(fig, use_container_width=True)
@@ -1447,7 +1479,10 @@ def run_production_system():
             if not risks:
                 st.success("✅ 当前生产稳定，无重大风险")
             for risk in risks:
-                st.markdown(f"<span style='color:red;'>{risk}</span>", unsafe_allow_html=True)
+                if "🚨" in risk:
+                    st.markdown(f"<span style='color:red; font-weight:bold;'>{risk}</span>", unsafe_allow_html=True)
+                else:
+                    st.markdown(f"<span style='color:orange;'>{risk}</span>", unsafe_allow_html=True)
 
         def _show_optimization_recommendations(self, recommendations, state):
             st.subheader("💡 优化建议")
@@ -1464,6 +1499,7 @@ def run_production_system():
                 st.metric("🏭 实际产量", f"{state['daily_output']:,} 瓶")
             with col3:
                 st.metric("🎯 计划产量", f"{state['plan_yield']:,} 瓶")
+
             col4, col5, col6 = st.columns(3)
             with col4:
                 st.metric("📊 产能利用率", f"{state['utilization'] * 100:.1f}%")
@@ -1477,7 +1513,10 @@ def run_production_system():
             st.write("**当前状态总结**:")
             st.write(f"- 产能缺口: {state['production_gap'] * 100:.1f}%")
             st.write(f"- 灌装/包装平衡比: {state['filling_packaging_balance']:.2f}")
-            st.write(f"- 缓冲区风险评分: {state['buffer_risk_score']:.2f} (安全库存={self.SAFE_BUFFER}盘)")
+
+            # 修改缓冲区分析描述，强调库存越低越好
+            buffer_status = "过高" if state['buffer_risk_score'] > 0.5 else "正常"
+            st.write(f"- 缓冲区库存水平: {state['buffer_risk_score']:.2f} ({buffer_status}, 目标: 越低越好)")
 
         def run_dashboard(self):
             st.set_page_config(
@@ -1564,8 +1603,8 @@ def run_production_system():
             self._show_buffer_analysis(current_state)
             with st.expander("缓冲区库存占比图作用与业务洞察", expanded=False):  # 📦
                 st.markdown("""
-                **作用**：监控缓冲区库存水平，识别积压。  
-                **业务洞察**：通过动态平衡灌装与包装节拍，减少在制品堆积，提升产线协同效率，避免非计划停机。
+                **作用**：监控缓冲区库存水平，识别积压风险。  
+                **业务洞察**：系统设置中级预警(50%)和高级预警(80%)，通过动态平衡灌装与包装节拍，减少在制品堆积，提升产线协同效率。
                 """)
 
     equipment_df, status_df, efficiency_df, buffer_df, prod_df = load_real_data()
